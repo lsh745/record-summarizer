@@ -1,0 +1,64 @@
+apiVersion: v1
+kind: ReplicationController
+metadata:
+  creationTimestamp: "2019-11-28T05:42:39Z"
+  generation: 1
+  labels:
+    run: registry
+  name: registry
+  namespace: default
+  resourceVersion: "4023572"
+  selfLink: /api/v1/namespaces/default/replicationcontrollers/registry
+  uid: e442decf-f8fa-406b-822c-ee7cb9b23376
+spec:
+  replicas: 1
+  selector:
+    run: registry
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        run: registry
+    spec:
+      containers:
+      - image: registry
+        imagePullPolicy: Always
+        name: registry
+        ports:
+        - containerPort: 5000
+          protocol: TCP
+        resources: {}
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        env:
+        - name: REGISTRY_HTTP_ADDR
+          value: "0.0.0.0:5000"
+        - name: REGISTRY_HTTP_TLS_CERTIFICATE
+          value: "/certs/server.crt"
+        - name: REGISTRY_HTTP_TLS_KEY
+          value: "/certs/server.key"
+                  volumeMounts:
+        - mountPath: /certs
+          name: cert
+        - mountPath: /var/lib/registry
+          name: registry
+      volumes:
+      - name: cert
+        hostPath:
+          path: /eyoh-creg/certs
+      - name : registry
+        hostPath:
+          path: /eyoh-creg/registry
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      securityContext: {}
+      terminationGracePeriodSeconds: 30
+      nodeSelector:
+        node: registry
+status:
+  availableReplicas: 1
+  fullyLabeledReplicas: 1
+  observedGeneration: 1
+  readyReplicas: 1
+  replicas: 1

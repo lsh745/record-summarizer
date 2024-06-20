@@ -1,0 +1,99 @@
+version: "3"
+
+x-common-variables: &common-variables
+  SERVER_NAME: ${SERVER_NAME}
+
+  DOCKER_HOST_IP: ${DOCKER_HOST_IP}
+  
+  MINIO_IMAGE: ${MINIO_IMAGE}
+  # NODE_EXPORTER_IMAGE: ${NODE_EXPORTER_IMAGE}
+  # GRAFANA_IMAGE: ${GRAFANA_IMAGE}
+
+  MINIO_PORT: ${MINIO_PORT}
+  MINIO_CONSOLE_PORT: ${MINIO_CONSOLE_PORT}
+  WEBSERVER_PORT: ${WEBSERVER_PORT}
+  API_PORT: ${API_PORT}
+  POSTGRESQL_PORT: ${POSTGRESQL_PORT}
+  # NODE_EXPORTER_PORT: ${NODE_EXPORTER_PORT}
+  # GRAFANA_PORT: ${GRAFANA_PORT}
+
+  MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+  MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+
+  MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
+  MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
+  
+  
+services:
+  api:
+    container_name: whisper_${SERVER_NAME}
+    build: 
+      context: ./stt/dockerfile
+      dockerfile: Dockerfile.whisper
+    entrypoint: sleep infinity
+    environment:
+      <<: *common-variables
+      CUDA_VISIBLE_DEVICES: 2
+    restart: always
+    volumes:
+      - ./stt:/app
+      - ./crawler:/crawler
+      - ./utils/script:/app/script/utils
+      - ./utils/script:/crawler/script/utils
+    ports:
+      - "${API_PORT}:${API_PORT}"
+    networks:
+      - langchain_network
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 8
+              capabilities: [gpu]
+
+
+  minio:
+    container_name: minio_${SERVER_NAME}
+    image: ${MINIO_IMAGE}
+    environment:
+      <<: *common-variables
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      MINIO_NOTIFY_WEBHOOK_QUEUE_DIR: /home/events
+    command:  'minio server /data --address ":${MINIO_PORT}" --console-address ":${MINIO_CONSOLE_PORT}"'
+    restart: always 
+    shm_size: '1gb'
+    ports:
+      - "${MINIO_PORT}:${MINIO_PORT}"
+      - "${MINIO_CONSOLE_PORT}:${MINIO_CONSOLE_PORT}"
+    volumes:
+      - ./:/data
+    networks:
+      - langchain_network
+  
+  postgresql:
+    container_name: postgresql_${SERVER_NAME}
+    image: ${POSTGRES_IMAGE}
+    restart: always
+    volumes:
+      - ./database:/app
+      - ./database/data:/var/lib/postgresql/data
+    ports:
+      - "${POSTGRESQL_PORT}:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
+
+  # node_exporter:
+
+  # prometheus:
+  
+  # grafana:
+
+
+
+networks:
+  langchain_network:
+    driver: bridge
