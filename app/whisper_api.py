@@ -1,6 +1,6 @@
-from speech import Speech
-from utils import multi_ext_glob, ext_conversion, archive_dir
-from slack_utils import SlackSDK
+from speech.speech import Speech
+from utils.utils import multi_ext_glob, ext_conversion, archive_dir
+from utils.slack_utils import SlackSDK
 import io
 import os
 import time

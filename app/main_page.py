@@ -3,7 +3,7 @@ import pandas as pd
 import os
 import tempfile
 import requests
-from slack_utils import SlackSDK
+from utils.slack_utils import SlackSDK
 
 
 
@@ -26,7 +26,7 @@ if not st.session_state.slack_user_dict:
         
 st.title("음성인식/요약")
 
-options =  pd.DataFrame([
+default_options =  pd.DataFrame([
     {"option": "gpt_model", "value": "gpt-4o"},
     {"option": "save_dir", "value": ""},
     {"option": "video_ext_list", "value": "mp4"},
@@ -40,8 +40,8 @@ options =  pd.DataFrame([
 ])
 
 with st.expander("설정"):
-    st.data_editor(
-    options,
+    options = st.data_editor(
+    default_options,
     disabled=["option"],
     hide_index=True,
     use_container_width=True
@@ -63,7 +63,7 @@ upload_data_list = st.file_uploader(
     accept_multiple_files=True,
     on_change=toggle_availability_state
     )
-prompt_data = st.text_area("요약용 프롬프트") # Placeholder 적기
+prompt_data = st.text_area("요약용 프롬프트", placeholder="ex) ~~사업에 대한 내용이다. ") # Placeholder 적기
 start_button = st.button("작업 시작", disabled=st.session_state.unavailable, on_click=toggle_availability_state)
 
 if start_button:
@@ -95,7 +95,7 @@ if start_button:
 
     response = requests.request(
         method="POST",
-        url="http://192.168.0.21:8089/api/stt", # TODO: 환경변수로 바꾸기
+        url="http://192.168.0.21:7527/api/stt", # TODO: 환경변수로 바꾸기
         json=payload
     )
     # print(response.json())

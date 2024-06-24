@@ -1,0 +1,10 @@
+ARG BASE=python:3.10
+FROM ${BASE}
+
+# Install OS dependencies:
+RUN apt-get update -y && apt-get upgrade -y
+RUN apt-get install -y --no-install-recommends \
+    gcc g++ \
+    make 
+RUN pip3 install --upgrade slack_sdk requests pandas streamlit
+WORKDIR /app
