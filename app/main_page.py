@@ -3,9 +3,10 @@ import pandas as pd
 import os
 import tempfile
 import requests
+from sqlalchemy import select
 from utils.slack_utils import SlackSDK
 from utils.database_utils import Database
-from database.models import Job
+from database.models import User, Job
 
 
 def toggle_availability_state():
@@ -18,16 +19,15 @@ if "unavailable" not in st.session_state:
 if "slack_user_dict" not in st.session_state:
     st.session_state.slack_user_dict = {}
 
-if not st.session_state.slack_user_dict:
-    slack_user_dict = SlackSDK().get_user_dict()["members"] # 따로 DB 구현하지 않을 경우 Slack API 요청 초과 발생 가능
-    for data in slack_user_dict:
-        if data["deleted"]: continue
-        st.session_state.slack_user_dict[data["profile"]["display_name"]] = data["id"] 
-
-
 # SQLALCHEMY_DATABASE_URL = f"{os.getenv('DB_TYPE')}://{os.getenv('POSTGRES_DB')}:{os.getenv('POSTGRES_PASSWORD')}@{os.getenv('DOCKER_HOST_IP')}:{os.getenv('POSTGRESQL_PORT')}/database"
 SQLALCHEMY_DATABASE_URL = f"postgresql://{os.getenv('POSTGRES_DB')}:{os.getenv('POSTGRES_PASSWORD')}@database"
 database = Database(SQLALCHEMY_DATABASE_URL)
+
+if not st.session_state.slack_user_dict:
+    stmt = select(User)
+    user_data = database.session.scalars(stmt).all()
+    for data in user_data:
+        st.session_state.slack_user_dict[data.display_name] = data.id
         
 st.title("음성인식/요약")
 
@@ -117,4 +117,4 @@ if start_button:
         url=f"http://{os.getenv('DOCKER_HOST_IP')}:{os.getenv('WEBSERVER_PORT')}/api/stt",
         json=payload
     )
-    # print(response.json())
+    print(response.json())

@@ -87,12 +87,12 @@ services:
       <<: *common-variables
       MINIO_ROOT_USER: ${MINIO_ROOT_USER}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
-      MINIO_NOTIFY_KAFKA_ENABLE: 'on'
-      MINIO_NOTIFY_KAFKA_BROKERS: 'kafka:${KAFKA00_PORT}'
-      MINIO_NOTIFY_KAFKA_TOPIC:  'minio'
+      # MINIO_NOTIFY_KAFKA_ENABLE: 'on'
+      # MINIO_NOTIFY_KAFKA_BROKERS: 'kafka:${KAFKA00_PORT}'
+      # MINIO_NOTIFY_KAFKA_TOPIC:  'minio'
       MINIO_NOTIFY_WEBHOOK_QUEUE_DIR: /home/events
 
-    command:  'minio server /data --address ":${MINIO_PORT}" --console-address ":${MINIO_CONSOLE_PORT}"'
+    command: 'minio server /data --address ":${MINIO_PORT}" --console-address ":${MINIO_CONSOLE_PORT}"'
     restart: always 
     shm_size: '1gb'
     ports:
