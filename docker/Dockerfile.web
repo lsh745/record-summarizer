@@ -5,6 +5,6 @@ FROM ${BASE}
 RUN apt-get update -y && apt-get upgrade -y
 RUN apt-get install -y --no-install-recommends \
     gcc g++ \
-    make 
-RUN pip3 install --upgrade slack_sdk requests pandas streamlit
+    make postgresql-server-dev-all
+RUN pip3 install --upgrade slack_sdk requests pandas streamlit SQLAlchemy psycopg2-binary
 WORKDIR /app

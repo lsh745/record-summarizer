@@ -2,11 +2,9 @@ version: "3"
 
 x-common-variables: &common-variables
   SERVER_NAME: ${SERVER_NAME}
-
   DOCKER_HOST_IP: ${DOCKER_HOST_IP}
   
   MINIO_IMAGE: ${MINIO_IMAGE}
-  KAFKA_IMAGE: ${KAFKA_IMAGE}
   # NODE_EXPORTER_IMAGE: ${NODE_EXPORTER_IMAGE}
   # GRAFANA_IMAGE: ${GRAFANA_IMAGE}
 
@@ -14,8 +12,6 @@ x-common-variables: &common-variables
   API_PORT: ${API_PORT}
   MINIO_PORT: ${MINIO_PORT}
   MINIO_CONSOLE_PORT: ${MINIO_CONSOLE_PORT}
-  KAFKA00_PORT: ${KAFKA00_PORT}
-  KAFKA_WEBUI_PORT: ${KAFKA_WEBUI_PORT}
   POSTGRESQL_PORT: ${POSTGRESQL_PORT}
   # NODE_EXPORTER_PORT: ${NODE_EXPORTER_PORT}
   # GRAFANA_PORT: ${GRAFANA_PORT}
@@ -30,24 +26,11 @@ x-common-variables: &common-variables
   OPENAI_API_KEY: ${OPENAI_API_KEY}
   GITHUB_TOKEN: ${GITHUB_TOKEN}
 
-  CUDA_VISIBLE_DEVICES: 2
+  POSTGRES_USER: postgres
+  POSTGRES_PASSWORD: postgres
+  POSTGRES_DB: postgres
 
-  KAFKA_CFG_AUTO_CREATE_TOPICS_ENABLE: true
-  # KRaft settings
-  KAFKA_KRAFT_CLUSTER_ID: HsDBs9l6UUmQq7Y5E6bNlw
-  KAFKA_CFG_CONTROLLER_QUORUM_VOTERS: 0@kafka00:9093
-  KAFKA_CFG_PROCESS_ROLES: controller,broker
-  # Listeners
-  ALLOW_PLAINTEXT_LISTENER: yes
-  KAFKA_CFG_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093,EXTERNAL://:9094
-  KAFKA_CFG_ADVERTISED_LISTENERS: PLAINTEXT://kafka00:9092,EXTERNAL://127.0.0.1:${KAFKA00_PORT}
-  KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,EXTERNAL:PLAINTEXT,PLAINTEXT:PLAINTEXT
-  KAFKA_CFG_CONTROLLER_LISTENER_NAMES: CONTROLLER
-  KAFKA_CFG_INTER_BROKER_LISTENER_NAME: PLAINTEXT
-  # Clustering
-  KAFKA_CFG_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
-  KAFKA_CFG_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 3
-  KAFKA_CFG_TRANSACTION_STATE_LOG_MIN_ISR: 2
+  CUDA_VISIBLE_DEVICES: 2
 
   
 services:
@@ -56,7 +39,8 @@ services:
     build: 
       context: ./
       dockerfile: Dockerfile.web
-    entrypoint: python3 -m streamlit run main_page.py --server.port=${WEBSERVER_PORT}
+    # entrypoint: python3 -m streamlit run main_page.py --server.port=${WEBSERVER_PORT}
+    entrypoint: sleep infinity
     environment:
       <<: *common-variables
     restart: always
@@ -119,7 +103,7 @@ services:
     networks:
       - summerize_network
   
-  postgresql:
+  database: # 이름 변경 시 /app/utils/database_utils도 변경해 줘야 함
     container_name: postgresql_${SERVER_NAME}
     image: ${POSTGRESQL_IMAGE}
     restart: always
@@ -129,9 +113,6 @@ services:
       - "${POSTGRESQL_PORT}:5432"
     environment:
       <<: *common-variables
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: postgres
     networks:
       - summerize_network
 
@@ -141,49 +122,8 @@ services:
   
   # grafana:
 
-  ##Kafka 00
-  kafka00:
-    image: ${KAFKA_IMAGE}
-    restart: unless-stopped
-    container_name: kafka00_${SERVER_NAME}
-    ports:
-      - ${KAFKA00_PORT}:9094
-    environment:
-      <<: *common-variables
-      # KRaft settings
-      KAFKA_CFG_BROKER_ID: 0
-      KAFKA_CFG_NODE_ID: 0
-    networks:
-      - summerize_network
-    volumes:
-      - "kafka01:/bitnami/kafka"
-
-  kafka_web:
-    image: ${KAFKA_WEBUI_IMAGE}
-    restart: unless-stopped
-    container_name: kafka_webui_${SERVER_NAME}
-    ports:
-      - ${KAFKA_WEBUI_PORT}:${KAFKA_WEBUI_PORT}
-    environment:
-      <<: *common-variables
-      KAFKA_CLUSTERS_0_NAME: Local-Kraft-Cluster
-      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka00:9092
-      DYNAMIC_CONFIG_ENABLED: true
-      KAFKA_CLUSTERS_0_AUDIT_TOPICAUDITENABLED: true
-      KAFKA_CLUSTERS_0_AUDIT_CONSOLEAUDITENABLED: true
-      #- KAFKA_CLUSTERS_0_METRICS_PORT=9999
-    networks:
-      - summerize_network
-
-
 volumes:
   tmp:
-    driver: local
-  kafka01:
-    driver: local
-  kafka02:
-    driver: local
-  kafka03:
     driver: local
 
 networks:

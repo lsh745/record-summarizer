@@ -1,6 +1,7 @@
 from speech.speech import Speech
 from utils.utils import multi_ext_glob, ext_conversion, archive_dir
 from utils.slack_utils import SlackSDK
+from utils.database_utils import Database
 import io
 import os
 import time
@@ -18,7 +19,12 @@ class InferenceRequest:
         self.router.add_api_route("/api/stt", self.stt, methods=["POST"])
         self.slack_sdk = SlackSDK()
         self.gpt_client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"),)
+        self.database_url = f"postgresql://{os.getenv('POSTGRES_DB')}:{os.getenv('POSTGRES_PASSWORD')}@database"
+        self.table_name = "job"
+        self.database = Database(self.database_url)
 
+    # def update_table(self):
+        
 
     def stt(
         self, 
@@ -28,6 +34,7 @@ class InferenceRequest:
         print("MESSAGES:", request_body["messages"])
         print("LANGUAGE:", request_body["language"])
         print("AUDIO:", request_body["upload_data_path"])
+
 
         language_dict = {
             "한국어": "ko",
