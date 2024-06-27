@@ -32,8 +32,9 @@ class Job(Base):
     gpt_result = Column(String, nullable=True, default=None)
 
     bucket = Column(String, nullable=True, default=None)
-    upload_path = Column(String, nullable=True, default=None)
-    save_path = Column(String, nullable=True, default=None)
+    hash =  Column(String, nullable=True, default=None)
+    source_path = Column(String, nullable=True, default=None)
+    result_path = Column(String, nullable=True, default=None)
 
     status = Column("status_enum", Enum(StatusEnum, name="status_enum"), nullable=False, default=StatusEnum.PENDING)
     created_at = Column(DateTime, default=datetime.now, nullable=False)
