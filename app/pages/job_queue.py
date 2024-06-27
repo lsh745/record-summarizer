@@ -9,7 +9,7 @@ from database.models import User, Job
 
 st.title("작업 목록")
 
-SQLALCHEMY_DATABASE_URL = f"postgresql://{os.getenv('POSTGRES_DB')}:{os.getenv('POSTGRES_PASSWORD')}@database"
+SQLALCHEMY_DATABASE_URL = f"postgresql://{os.getenv('POSTGRES_DB')}:{os.getenv('POSTGRES_PASSWORD')}@database" # TODO: 환경변수화
 database = Database(SQLALCHEMY_DATABASE_URL)
 
 

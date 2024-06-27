@@ -20,7 +20,7 @@ if "slack_user_dict" not in st.session_state:
     st.session_state.slack_user_dict = {}
 
 # SQLALCHEMY_DATABASE_URL = f"{os.getenv('DB_TYPE')}://{os.getenv('POSTGRES_DB')}:{os.getenv('POSTGRES_PASSWORD')}@{os.getenv('DOCKER_HOST_IP')}:{os.getenv('POSTGRESQL_PORT')}/database"
-SQLALCHEMY_DATABASE_URL = f"postgresql://{os.getenv('POSTGRES_DB')}:{os.getenv('POSTGRES_PASSWORD')}@database"
+SQLALCHEMY_DATABASE_URL = f"postgresql://{os.getenv('POSTGRES_DB')}:{os.getenv('POSTGRES_PASSWORD')}@database" # TODO: 환경변수화
 database = Database(SQLALCHEMY_DATABASE_URL)
 
 if not st.session_state.slack_user_dict:

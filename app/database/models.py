@@ -14,6 +14,8 @@ class User(Base):
     
     slack_id = Column(String, nullable=False)
     display_name = Column(String, nullable=False)
+    storage_access_token = Column(String, nullable=False)
+    storage_secret_token = Column(String, nullable=False)
 
     user = relationship('Job', backref='user')
 
@@ -25,11 +27,11 @@ class Job(Base):
 
     gpt_model = Column(String, nullable=False)
     language = Column(String, nullable=False)
-    # gpt_model = Column("gpt_model_enum", Enum(GPTModelEnum, name="gpt_model_enum"), nullable=False)
-    # language = Column("language_enum", Enum(LanguageEnum, name="language_enum"), nullable=False)
     prompt = Column(String, nullable=True)
     message = Column(String, nullable=True, default=None)
     gpt_result = Column(String, nullable=True, default=None)
+
+    bucket = Column(String, nullable=True, default=None)
     upload_path = Column(String, nullable=True, default=None)
     save_path = Column(String, nullable=True, default=None)
 
