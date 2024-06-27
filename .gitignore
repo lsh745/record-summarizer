@@ -2,6 +2,7 @@
 *.env*
 .env
 data
+database
 storage
 tmp
 *alembic.ini
