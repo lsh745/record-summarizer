@@ -117,9 +117,5 @@ class InferenceRequest:
 
 
 if __name__ == "__main__":
-    # xtts = XTTS()
-#     minio = minio_api.MinIO()
-    # inference_api = InferenceRequest(xtts, minio)
     inference_api = InferenceRequest()
     inference_api.runserver()
-
