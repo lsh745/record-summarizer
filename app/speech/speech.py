@@ -16,7 +16,7 @@ class Speech:
         language: str = None,
 
         pipeline_model: str = "pyannote/speaker-diarization-3.1",
-        use_auth_token: str = "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"        
+        use_auth_token: str = ""
         ):
         print("[+] INITIALIZING MAIN")
         start = time.time()

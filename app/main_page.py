@@ -41,7 +41,7 @@ default_options =  pd.DataFrame([
     # {"option": "length", "value": "480000"},
     # {"option": "model", "value": "large"},
     # {"option": "pipeline_model", "value": "pyannote/speaker-diarization-3.1"},
-    # {"option": "use_auth_token", "value": "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"},
+    # {"option": "use_auth_token", "value": },
     # {"option": "gpt_token", "value": ""},
 ])
 
