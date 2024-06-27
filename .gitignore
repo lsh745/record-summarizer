@@ -1,5 +1,9 @@
+*__pycache__
 *.env*
 .env
 data
+database
 storage
 tmp
+*alembic.ini
+*migrations

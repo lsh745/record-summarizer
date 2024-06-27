@@ -5,7 +5,8 @@ FROM ${BASE}
 RUN apt-get update -y && apt-get upgrade -y
 RUN apt-get install -y --no-install-recommends \
     gcc g++ \
-    make ffmpeg\
+    make ffmpeg \
+    postgresql-server-dev-all \
     python3 python3-dev python3-pip python3-venv python3-wheel 
-RUN pip3 install --upgrade transformers accelerate datasets[audio] openai-whisper pyannote.audio slack_sdk uvicorn fastapi openai pydub
+RUN pip3 install --upgrade transformers accelerate datasets[audio] openai-whisper pyannote.audio slack_sdk uvicorn fastapi openai pydub SQLAlchemy psycopg2-binary
 WORKDIR /app
