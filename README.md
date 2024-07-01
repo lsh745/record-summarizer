@@ -1,1 +1,1 @@
-# summarize_meeting
+# Record Summarizer
