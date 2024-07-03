@@ -14,8 +14,8 @@ class User(Base):
     
     slack_id = Column(String, nullable=False)
     display_name = Column(String, nullable=False)
-    storage_access_token = Column(String, nullable=False)
-    storage_secret_token = Column(String, nullable=False)
+    storage_access_token = Column(String, nullable=True)
+    storage_secret_token = Column(String, nullable=True)
 
     user = relationship('Job', backref='user')
 

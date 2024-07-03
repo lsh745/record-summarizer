@@ -48,7 +48,7 @@ services:
       - ../app:/app
       - tmp:/tmp
     ports:
-      - "${WEBSERVER_PORT}:${WEBSERVER_PORT}"
+      - "${WEBSERVER_PORT}:8501"
     networks:
       - summerize_network
 
@@ -91,6 +91,8 @@ services:
       # MINIO_NOTIFY_KAFKA_BROKERS: 'kafka:${KAFKA00_PORT}'
       # MINIO_NOTIFY_KAFKA_TOPIC:  'minio'
       MINIO_NOTIFY_WEBHOOK_QUEUE_DIR: /home/events
+      MINIO_LAMBDA_WEBHOOK_ENABLE_whisper_api: 'on'
+      MINIO_LAMBDA_WEBHOOK_ENDPOINT_whisper_api: 'http://${DOCKER_HOST_IP}:${API_PORT}'
 
     command: 'minio server /data --address ":${MINIO_PORT}" --console-address ":${MINIO_CONSOLE_PORT}"'
     restart: always 

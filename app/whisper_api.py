@@ -2,6 +2,7 @@ from speech.speech import Speech
 from utils.utils import multi_ext_glob, ext_conversion, archive_dir
 from utils.slack_utils import SlackSDK
 from utils.database_utils import Database
+from utils.minio_utils import MinIO
 from database.models import User, Job
 import io
 import os
@@ -20,6 +21,7 @@ class InferenceRequest:
         self.router = APIRouter()
         self.router.add_api_route("/api/stt", self.stt, methods=["POST"])
         self.router.add_api_route("/api/get_users", self.get_users, methods=["POST"])
+        self.router.add_api_route("/api/", self.storage_lambda, methods=["POST"])
 
         self.slack_sdk = SlackSDK()
         self.gpt_client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY"),)
@@ -27,6 +29,8 @@ class InferenceRequest:
         self.database_url = f"postgresql://{os.getenv('POSTGRES_DB')}:{os.getenv('POSTGRES_PASSWORD')}@database"
         self.table_name = "job"
         self.database = Database(self.database_url, True)
+
+        self.storage = MinIO()
         
         self.running = False
 
@@ -98,6 +102,13 @@ class InferenceRequest:
         )
 
         ## TODO: DB 확인해서 완료되지 않은 job이 있을 시 그 job 진행, 없을 시 self.running = False
+
+    def storage_lambda(
+        self,
+        request_body: dict
+        ):
+        print(request_body)
+
 
     def runserver(self):
         print("RUNSERVER")

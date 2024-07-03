@@ -1,12 +1,16 @@
-import streamlit as st
-import pandas as pd
-import os
-import tempfile
-import requests
 from sqlalchemy import select
 from utils.slack_utils import SlackSDK
 from utils.database_utils import Database
+from utils.minio_utils import MinIO
 from database.models import User, Job
+
+import streamlit as st
+import pandas as pd
+import os
+import io
+import requests
+import hashlib
+import datetime
 
 
 def toggle_availability_state():
@@ -19,13 +23,17 @@ if "unavailable" not in st.session_state:
 if "slack_user_dict" not in st.session_state:
     st.session_state.slack_user_dict = {}
 
-# SQLALCHEMY_DATABASE_URL = f"{os.getenv('DB_TYPE')}://{os.getenv('POSTGRES_DB')}:{os.getenv('POSTGRES_PASSWORD')}@{os.getenv('DOCKER_HOST_IP')}:{os.getenv('POSTGRESQL_PORT')}/database"
-SQLALCHEMY_DATABASE_URL = f"postgresql://{os.getenv('POSTGRES_DB')}:{os.getenv('POSTGRES_PASSWORD')}@database" # TODO: 환경변수화
-database = Database(SQLALCHEMY_DATABASE_URL)
+if "database" not in st.session_state:
+    # SQLALCHEMY_DATABASE_URL = f"{os.getenv('DB_TYPE')}://{os.getenv('POSTGRES_DB')}:{os.getenv('POSTGRES_PASSWORD')}@{os.getenv('DOCKER_HOST_IP')}:{os.getenv('POSTGRESQL_PORT')}/database"
+    SQLALCHEMY_DATABASE_URL = f"postgresql://{os.getenv('POSTGRES_DB')}:{os.getenv('POSTGRES_PASSWORD')}@database" # TODO: 환경변수화
+    st.session_state.database = Database(SQLALCHEMY_DATABASE_URL)
+
+if "storage" not in st.session_state:
+    st.session_state.storage = MinIO()
 
 if not st.session_state.slack_user_dict:
     stmt = select(User)
-    user_data = database.session.scalars(stmt).all()
+    user_data = st.session_state.database.session.scalars(stmt).all()
     for data in user_data:
         st.session_state.slack_user_dict[data.display_name] = data.id
         
@@ -38,6 +46,7 @@ default_options =  pd.DataFrame([
     # {"option": "audio_ext_list", "value": "m4a, wav"},
     # {"option": "axis", "value": "-1"},
     # {"option": "n_mels", "value": "128"},
+
     # {"option": "length", "value": "480000"},
     # {"option": "model", "value": "large"},
     # {"option": "pipeline_model", "value": "pyannote/speaker-diarization-3.1"},
@@ -74,23 +83,25 @@ start_button = st.button("작업 시작", disabled=st.session_state.unavailable,
 
 if start_button:
     st.success("요청 전송 완료. 결과물은 Slack 메시지로 전송됩니다.")
-    
-    temp_dir = tempfile.mkdtemp()
-    save_dir = os.path.join(temp_dir, "result")
-    for upload_data in upload_data_list:
-        os.makedirs(save_dir, exist_ok=True)
-        path = os.path.join(save_dir, upload_data.name)
-        print("SAVING AS:", path)
-        with open(path, "wb") as f:
-            f.write(upload_data.getvalue())
 
-    print("ASDJIOAJSIODJAIOSDJI", str(options[options["option"] == "gpt_model"]["value"]).split()[1])
+    h = hashlib.new('sha256')
+    h.update(bytes(f"{st.session_state.slack_user_dict[slack_user_name]}_{datetime.datetime.now()}", 'utf-8'))
+    hash_value = h.hexdigest()
+    st.session_state.storage.bucket_name = "common"
+
+    for data in upload_data_list:
+        print(data)
+        st.session_state.storage.upload_file_raw(
+            object_name = f"{hash_value}/source/{data.name}",
+            data = io.BytesIO(data.getvalue()),
+            length = data.size
+            )
+
     payload = {
         "slack_id": st.session_state.slack_user_dict[slack_user_name],
-        # "gpt_model": "gpt-4o", 
         "gpt_model": str(options[options["option"] == "gpt_model"]["value"]).split()[1],
         "language": language_selectbox,
-        "upload_data_path": save_dir,
+        # "upload_data_path": save_dir,
         "video_ext_list": ["mp4"],
         "audio_ext_list": ["m4a", "wav"],
         # "video_ext_list": options[options["option"] == "video_ext_list"]["value"].split(),
@@ -103,18 +114,19 @@ if start_button:
     }
 
     job = Job(
-        user_id=payload["slack_id"],
-        gpt_model=payload["gpt_model"],
-        language=payload["language"],
+        user_id=st.session_state.slack_user_dict[slack_user_name],
+        gpt_model=str(options[options["option"] == "gpt_model"]["value"]).split()[1],
+        language=language_selectbox,
         prompt=prompt_data,
-        upload_path=payload["upload_data_path"]
+        bucket="common",
+        hash=hash_value
         )
-    database.session.add(job)
-    database.session.commit()
+    st.session_state.database.session.add(job)
+    st.session_state.database.session.commit()
 
-    response = requests.request(
-        method="POST",
-        url=f"http://{os.getenv('DOCKER_HOST_IP')}:{os.getenv('WEBSERVER_PORT')}/api/stt",
-        json=payload
-    )
-    print(response.json())
+    # response = requests.request(
+    #     method="POST",
+    #     url=f"http://{os.getenv('DOCKER_HOST_IP')}:{os.getenv('WEBSERVER_PORT')}/api/stt",
+    #     json=payload
+    # )
+    # print(response.json())

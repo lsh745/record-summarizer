@@ -2,9 +2,9 @@ ARG BASE=python:3.10
 FROM ${BASE}
 
 # Install OS dependencies:
-RUN apt-get update -y && apt-get upgrade -y
+RUN apt update -y && apt upgrade -y
 RUN apt-get install -y --no-install-recommends \
     gcc g++ \
     make postgresql-server-dev-all
-RUN pip3 install --upgrade slack_sdk requests pandas streamlit SQLAlchemy psycopg2-binary
+RUN pip3 install --upgrade slack_sdk requests pandas streamlit pydantic SQLAlchemy psycopg2-binary minio
 WORKDIR /app

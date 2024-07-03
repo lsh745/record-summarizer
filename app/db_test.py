@@ -8,7 +8,7 @@ import requests
 if __name__ == "__main__":
     response = requests.request(
         method="POST",
-        url=f"http://0.0.0.0:7527/api/get_users"
+        url=f"http://192.168.0.21:7527/api/get_users"
     )
 
     print(response.text)
