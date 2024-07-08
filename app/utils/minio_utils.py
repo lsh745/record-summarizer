@@ -13,6 +13,19 @@ class MinIO:
         self.bucket_name = "test"
 
 
+    def list_object(
+        self,
+        prefix: str,
+        recursive: bool = True
+        ):
+        objects = self.minio_client.list_objects(
+            bucket_name=self.bucket_name,
+            prefix=prefix,
+            recursive=recursive
+        )
+        return objects
+
+
     def upload_file(
         self,
         object_name: str,
@@ -25,7 +38,7 @@ class MinIO:
             object_name = object_name, 
             file_path = file_path, 
             content_type = content_type
-            )   
+            ) 
 
 
     def upload_file_raw(
@@ -35,7 +48,7 @@ class MinIO:
         length: int,
         # content_type: str # audio/mpeg
         ):
-        print("UPLOADING OBJECT")
+        print("UPLOADING RAW OBJECT")
         self.minio_client.put_object(
             self.bucket_name, 
             object_name = object_name, 
@@ -50,7 +63,7 @@ class MinIO:
         object_name: str,
         file_path: str,
         ):
-        print("UPLOADING OBJECT")
+        print("DOWNLOADING OBJECT")
         self.minio_client.fget_object(
             self.bucket_name,
             object_name = object_name, 
@@ -59,6 +72,7 @@ class MinIO:
 
 
     def create_bucket(self, bucket_name: str):
+        print("CREATING BUCKET")
         self.minio_client.make_bucket(bucket_name)
 
 

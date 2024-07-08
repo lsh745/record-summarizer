@@ -26,10 +26,11 @@ if "slack_user_dict" not in st.session_state:
 if "database" not in st.session_state:
     # SQLALCHEMY_DATABASE_URL = f"{os.getenv('DB_TYPE')}://{os.getenv('POSTGRES_DB')}:{os.getenv('POSTGRES_PASSWORD')}@{os.getenv('DOCKER_HOST_IP')}:{os.getenv('POSTGRESQL_PORT')}/database"
     SQLALCHEMY_DATABASE_URL = f"postgresql://{os.getenv('POSTGRES_DB')}:{os.getenv('POSTGRES_PASSWORD')}@database" # TODO: 환경변수화
-    st.session_state.database = Database(SQLALCHEMY_DATABASE_URL)
+    st.session_state.database = Database(SQLALCHEMY_DATABASE_URL, create=True)
 
 if "storage" not in st.session_state:
     st.session_state.storage = MinIO()
+    st.session_state.storage.bucket_name = "common"
 
 if not st.session_state.slack_user_dict:
     stmt = select(User)
@@ -87,7 +88,6 @@ if start_button:
     h = hashlib.new('sha256')
     h.update(bytes(f"{st.session_state.slack_user_dict[slack_user_name]}_{datetime.datetime.now()}", 'utf-8'))
     hash_value = h.hexdigest()
-    st.session_state.storage.bucket_name = "common"
 
     for data in upload_data_list:
         print(data)
@@ -99,6 +99,8 @@ if start_button:
 
     payload = {
         "slack_id": st.session_state.slack_user_dict[slack_user_name],
+        "bucket": st.session_state.storage.bucket_name,
+        "hash": hash_value,
         "gpt_model": str(options[options["option"] == "gpt_model"]["value"]).split()[1],
         "language": language_selectbox,
         # "upload_data_path": save_dir,
@@ -118,15 +120,15 @@ if start_button:
         gpt_model=str(options[options["option"] == "gpt_model"]["value"]).split()[1],
         language=language_selectbox,
         prompt=prompt_data,
-        bucket="common",
-        hash=hash_value
+        bucket=st.session_state.storage.bucket_name,
+        hash_id=hash_value
         )
     st.session_state.database.session.add(job)
     st.session_state.database.session.commit()
 
-    # response = requests.request(
-    #     method="POST",
-    #     url=f"http://{os.getenv('DOCKER_HOST_IP')}:{os.getenv('WEBSERVER_PORT')}/api/stt",
-    #     json=payload
-    # )
-    # print(response.json())
+    response = requests.request(
+        method="POST",
+        url=f"http://{os.getenv('DOCKER_HOST_IP')}:{os.getenv('API_PORT')}/api/stt",
+        json=payload
+    )
+    print(response.text)
