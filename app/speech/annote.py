@@ -9,7 +9,7 @@ class Annotation:
         self,
         audio_list: list,
         pipeline_model: str = "pyannote/speaker-diarization-3.1",
-        use_auth_token: str = "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",
+        use_auth_token: str = "",
         save_dir: str = "/app/data"
         ):
         print("[+] INITIALIZING DIARIZATION")

@@ -48,7 +48,6 @@ def archive_dir(
 
 
 if __name__ == "__main__":
-
     input_dir = "/app/data/0605_chairman"
     audio_ext_list = ["mp4", "wav", "m4a"]
     result = multi_ext_glob(input_dir, audio_ext_list, recursive=True)

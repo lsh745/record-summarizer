@@ -2,17 +2,16 @@ version: "3"
 
 x-common-variables: &common-variables
   SERVER_NAME: ${SERVER_NAME}
-
   DOCKER_HOST_IP: ${DOCKER_HOST_IP}
   
   MINIO_IMAGE: ${MINIO_IMAGE}
   # NODE_EXPORTER_IMAGE: ${NODE_EXPORTER_IMAGE}
   # GRAFANA_IMAGE: ${GRAFANA_IMAGE}
 
-  MINIO_PORT: ${MINIO_PORT}
-  MINIO_CONSOLE_PORT: ${MINIO_CONSOLE_PORT}
   WEBSERVER_PORT: ${WEBSERVER_PORT}
   API_PORT: ${API_PORT}
+  MINIO_PORT: ${MINIO_PORT}
+  MINIO_CONSOLE_PORT: ${MINIO_CONSOLE_PORT}
   POSTGRESQL_PORT: ${POSTGRESQL_PORT}
   # NODE_EXPORTER_PORT: ${NODE_EXPORTER_PORT}
   # GRAFANA_PORT: ${GRAFANA_PORT}
@@ -22,28 +21,57 @@ x-common-variables: &common-variables
 
   MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
   MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
-  
+
+  SLACK_BOT_TOKEN: ${SLACK_BOT_TOKEN}
+  OPENAI_API_KEY: ${OPENAI_API_KEY}
+  GITHUB_TOKEN: ${GITHUB_TOKEN}
+
+  POSTGRES_USER: postgres
+  POSTGRES_PASSWORD: postgres
+  POSTGRES_DB: postgres
+
+  CUDA_VISIBLE_DEVICES: 2
+
   
 services:
-  api:
-    container_name: whisper_${SERVER_NAME}
+  webserver:
+    container_name: webserver_${SERVER_NAME}
     build: 
-      context: ./stt/dockerfile
-      dockerfile: Dockerfile.whisper
+      context: ./
+      dockerfile: Dockerfile.web
+    # entrypoint: python3 -m streamlit run main_page.py --server.port=${WEBSERVER_PORT}
     entrypoint: sleep infinity
     environment:
       <<: *common-variables
-      CUDA_VISIBLE_DEVICES: 2
     restart: always
     volumes:
-      - ./stt:/app
-      - ./crawler:/crawler
-      - ./utils/script:/app/script/utils
-      - ./utils/script:/crawler/script/utils
+      - ../app:/app
+      - tmp:/tmp
+    ports:
+      - "${WEBSERVER_PORT}:8501"
+    networks:
+      - summerize_network
+
+  speech_api:
+    # docker run --rm -it --gpus=all -v $PWD:/app -v $PWD/tmp:/tmp -p 8089:8089 whisper-temp-0529 bash
+    container_name: speech_api_${SERVER_NAME}
+    build: 
+      context: ./
+      dockerfile: Dockerfile.speech
+    # entrypoint: python3 whisper_api.py
+    entrypoint: sleep infinity
+    environment:
+      <<: *common-variables
+      PYTHONUNBUFFERED: 1
+      # CUDA_VISIBLE_DEVICES: ${CUDA_VISIBLE_DEVICES}
+    restart: always
+    volumes:
+      - ../app:/app
+      - tmp:/tmp
     ports:
       - "${API_PORT}:${API_PORT}"
     networks:
-      - langchain_network
+      - summerize_network
     deploy:
       resources:
         reservations:
@@ -52,7 +80,6 @@ services:
               count: 8
               capabilities: [gpu]
 
-
   minio:
     container_name: minio_${SERVER_NAME}
     image: ${MINIO_IMAGE}
@@ -60,31 +87,36 @@ services:
       <<: *common-variables
       MINIO_ROOT_USER: ${MINIO_ROOT_USER}
       MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      # MINIO_NOTIFY_KAFKA_ENABLE: 'on'
+      # MINIO_NOTIFY_KAFKA_BROKERS: 'kafka:${KAFKA00_PORT}'
+      # MINIO_NOTIFY_KAFKA_TOPIC:  'minio'
       MINIO_NOTIFY_WEBHOOK_QUEUE_DIR: /home/events
-    command:  'minio server /data --address ":${MINIO_PORT}" --console-address ":${MINIO_CONSOLE_PORT}"'
+      MINIO_LAMBDA_WEBHOOK_ENABLE_whisper_api: 'on'
+      MINIO_LAMBDA_WEBHOOK_ENDPOINT_whisper_api: 'http://${DOCKER_HOST_IP}:${API_PORT}'
+
+    command: 'minio server /data --address ":${MINIO_PORT}" --console-address ":${MINIO_CONSOLE_PORT}"'
     restart: always 
     shm_size: '1gb'
     ports:
       - "${MINIO_PORT}:${MINIO_PORT}"
       - "${MINIO_CONSOLE_PORT}:${MINIO_CONSOLE_PORT}"
     volumes:
-      - ./:/data
+      - ../storage:/data
     networks:
-      - langchain_network
+      - summerize_network
   
-  postgresql:
+  database: # 이름 변경 시 /app/utils/database_utils도 변경해 줘야 함
     container_name: postgresql_${SERVER_NAME}
-    image: ${POSTGRES_IMAGE}
+    image: ${POSTGRESQL_IMAGE}
     restart: always
     volumes:
-      - ./database:/app
-      - ./database/data:/var/lib/postgresql/data
+      - ../database:/var/lib/postgresql/data
     ports:
       - "${POSTGRESQL_PORT}:5432"
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: postgres
+      <<: *common-variables
+    networks:
+      - summerize_network
 
   # node_exporter:
 
@@ -92,8 +124,10 @@ services:
   
   # grafana:
 
-
+volumes:
+  tmp:
+    driver: local
 
 networks:
-  langchain_network:
+  summerize_network:
     driver: bridge

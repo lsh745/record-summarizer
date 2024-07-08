@@ -1,8 +1,8 @@
 import os
 import time
-from utils import multi_ext_glob, ext_conversion
-from whisper_stt import WhisperSTT
-from annote import Annotation
+from utils.utils import multi_ext_glob, ext_conversion
+from speech.whisper_stt import WhisperSTT
+from speech.annote import Annotation
 
 
 class Speech:
@@ -16,7 +16,7 @@ class Speech:
         language: str = None,
 
         pipeline_model: str = "pyannote/speaker-diarization-3.1",
-        use_auth_token: str = "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"        
+        use_auth_token: str = ""
         ):
         print("[+] INITIALIZING MAIN")
         start = time.time()
@@ -41,7 +41,7 @@ class Speech:
         start = time.time()
 
         target_file_name, target_file_ext = os.path.splitext(target_file)
-        if target_file_ext == "wav": return
+        if target_file_ext == ".wav": return
 
         converted_file = target_file.replace(target_file_ext, "wav")
         ext_conversion(
