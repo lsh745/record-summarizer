@@ -11,6 +11,7 @@ import uvicorn
 from fastapi import FastAPI, Request, Header, Response, status, BackgroundTasks, APIRouter
 from fastapi.responses import JSONResponse
 from starlette.middleware.cors import CORSMiddleware
+from sqlalchemy import select
 from openai import OpenAI
 
 
@@ -30,7 +31,7 @@ class InferenceRequest:
         self.database = Database(self.database_url, True)
         self.storage = MinIO()
 
-        self.download_path = "/downloads"
+        self.download_dir = "/downloads"
         
         self.running = False
 
@@ -70,9 +71,14 @@ class InferenceRequest:
             "자동": None
         }
 
-        if not os.path.isdir(self.download_path):
+        if not os.path.isdir(self.download_dir):
+            print("[*] MAKING DOWNLOADS DIRECTORY.", self.download_dir)
+            os.makedirs(self.download_dir)
+
+        save_dir = f"{self.download_dir}/{request_body['hash']}/result/"
+        if not os.path.isdir(save_dir):
             print("[*] MAKING DOWNLOADS DIRECTORY.")
-            os.makedirs(self.download_path)
+            os.makedirs(save_dir)
             
         print(f"[*] PREFIX: {request_body['bucket']}/{request_body['hash']}")
         self.storage.bucket_name = request_body['bucket']
@@ -93,47 +99,62 @@ class InferenceRequest:
                 print("[*] AUDIO")
                 ext_path = "audio"
             
-            print("[+] DOWNLOADING", extension, ext_path, object.object_name, f"{self.download_path}/{request_body['hash']}/source/{ext_path}/{basename}")
+            print("[+] DOWNLOADING", extension, ext_path, object.object_name, f"{self.download_dir}/{request_body['hash']}/source/{ext_path}/{basename}")
             self.storage.download_file(
                 object_name=object.object_name,
-                file_path=f"{self.download_path}/{request_body['hash']}/source/{ext_path}/{basename}"
+                file_path=f"{self.download_dir}/{request_body['hash']}/source/{ext_path}/{basename}"
             )
 
-        # speech_tool = Speech(
-        #     save_dir=request_body["upload_data_path"],
-        #     language=language_dict[request_body["language"]]
-        #     )
+        speech_tool = Speech(
+            save_dir=save_dir,
+            language=language_dict[request_body["language"]]
+            )
 
-        # speech_tool.video_list = multi_ext_glob(request_body["upload_data_path"], request_body["video_ext_list"], recursive=True)
-        # speech_tool.audio_list = multi_ext_glob(request_body["upload_data_path"], request_body["audio_ext_list"], recursive=True)
-        # for audio in speech_tool.audio_list:
-        #     speech_tool.convert_to_wav(audio)
-        # speech_tool.wav_list = multi_ext_glob(request_body["upload_data_path"], ["wav"], recursive=True)
-        # print(f"[*]\tVIDEO EXTENSIONS: {request_body['video_ext_list']}\n\tLENGTH OF VIDEOS: {len(speech_tool.video_list)}")
-        # print(f"[*]\tAUDIO EXTENSIONS: {request_body['audio_ext_list']}\n\tLENGTH OF AUDIOS: {len(speech_tool.audio_list)}")
-        # print(f"[*]\TARGET EXTENSIONS: ['wav']\n\tLENGTH OF WAVS: {len(speech_tool.wav_list)}")
+        speech_tool.video_list = multi_ext_glob(f"{self.download_dir}/{request_body['hash']}/source/video/", request_body["video_ext_list"], recursive=True)
+        speech_tool.audio_list = multi_ext_glob(f"{self.download_dir}/{request_body['hash']}/source/audio/", request_body["audio_ext_list"], recursive=True)
+        for audio in speech_tool.audio_list:
+            speech_tool.convert_to_wav(audio)
+        speech_tool.wav_list = multi_ext_glob(f"{self.download_dir}/{request_body['hash']}/source/audio/", ["wav"], recursive=True)
+        print(f"[*]\tVIDEO EXTENSIONS: {request_body['video_ext_list']}\n\tLENGTH OF VIDEOS: {len(speech_tool.video_list)}")
+        print(f"[*]\tAUDIO EXTENSIONS: {request_body['audio_ext_list']}\n\tLENGTH OF AUDIOS: {len(speech_tool.audio_list)}")
+        print(f"[*]\TARGET EXTENSIONS: ['wav']\n\tLENGTH OF WAVS: {len(speech_tool.wav_list)}")
     
-        # whisper_result = speech_tool.run()
-        # request_body["messages"].append({"role": "user", "content": whisper_result[0]["text"]})
+        whisper_result = speech_tool.run()
+        request_body["messages"].append({"role": "user", "content": whisper_result[0]["text"]})
 
-        # response = self.gpt_client.chat.completions.create(
-        #     model=request_body["gpt_model"],
-        #     messages=request_body["messages"]
-        # )
-        # print("[*] CHATGPT RESPONSE:", response)
-        # print("[*] DONE ARCHIVING", request_body["upload_data_path"])
-        # print("[*] response.choices[0].message.content", response.choices[0].message.content)
-        # print("[*] FILE EXISTS:", os.listdir(request_body["upload_data_path"]))
-        # # print(f"PAYLOAD:\n\tmessage={response.choices[0].message.content}\n\tfile_path={os.path.join(request_body['upload_data_path'], 'archive.zip')}\n\tchannel={request_body['slack_id']}")
-        # # os.system(f"cp {os.path.join(request_body['upload_data_path'], 'archive.zip')} .")
+        response = self.gpt_client.chat.completions.create(
+            model=request_body["gpt_model"],
+            messages=request_body["messages"]
+        )
+        print("[*] CHATGPT RESPONSE:", response)
+        print("[*] response.choices[0].message.content", response.choices[0].message.content)
+        # print(f"PAYLOAD:\n\tmessage={response.choices[0].message.content}\n\tfile_path={os.path.join(request_body['upload_data_path'], 'archive.zip')}\n\tchannel={request_body['slack_id']}")
 
-        # self.slack_sdk.send_message_multiple_files(
-        #     message=response.choices[0].message.content,
-        #     file_path_list=[os.path.join(request_body["upload_data_path"], filename) for filename in os.listdir(request_body["upload_data_path"])],
-        #     channel=request_body["slack_id"]
-        # )
+        result_list = []
+        for filename in os.listdir(save_dir):
+            result_path = os.path.join(save_dir, filename)
+            print("[*] UPLOADING FILE.", filename, result_path)
+            self.storage.upload_file(
+                object_name = f"{request_body['hash']}/result/{filename}",
+                file_path=result_path
+            )
+            result_list.append(result_path)
+
+        user_table = self.database.connect_table("user")
+        stmt = select(user_table).where(user_table.c.id == request_body["slack_id"])
+        with self.database.engine.connect() as conn:
+            for row in conn.execute(stmt):
+                print(row.slack_id) 
+                self.slack_sdk.send_message_multiple_files(
+                    message=response.choices[0].message.content,
+                    # message="test",
+                    file_path_list=result_list,
+                    channel=row.slack_id
+                )
 
         # ## TODO: DB 확인해서 완료되지 않은 job이 있을 시 그 job 진행, 없을 시 self.running = False
+        ## TODO: DB 업데이트
+
 
     def storage_lambda(
         self,

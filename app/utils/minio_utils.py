@@ -30,14 +30,14 @@ class MinIO:
         self,
         object_name: str,
         file_path: str,
-        content_type: str # audio/mpeg
+        # content_type: str # audio/mpeg
         ):
         print("UPLOADING OBJECT")
         self.minio_client.fput_object(
             self.bucket_name, 
             object_name = object_name, 
             file_path = file_path, 
-            content_type = content_type
+            # content_type = content_type
             ) 
 
 

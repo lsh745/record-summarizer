@@ -41,7 +41,7 @@ class Speech:
         start = time.time()
 
         target_file_name, target_file_ext = os.path.splitext(target_file)
-        if target_file_ext == "wav": return
+        if target_file_ext == ".wav": return
 
         converted_file = target_file.replace(target_file_ext, "wav")
         ext_conversion(

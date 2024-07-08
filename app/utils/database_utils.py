@@ -18,5 +18,5 @@ class Database:
             Base.metadata.bind = self.engine
 
 
-    def connect_table(table_name: str):
-        return Table(table_name, MetaData(), autoload=True, autoload_with=self.engine)
+    def connect_table(self, table_name: str):
+        return Table(table_name, MetaData(), autoload_with=self.engine)
