@@ -40,4 +40,5 @@ class Job(Base):
     finished_at = Column(DateTime, nullable=True)
     
     user_id = Column(Integer, ForeignKey('user.id'), nullable=True)
+    error_message = Column(String, nullable=True, default=None)
 

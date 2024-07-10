@@ -7,7 +7,7 @@ from database.models import User, Job
 from database.enums import GPTModelEnum, LanguageEnum, StatusEnum
 import io
 import os
-import time
+import datetime
 import copy
 import uvicorn
 from fastapi import FastAPI, Request, Header, Response, status, BackgroundTasks, APIRouter
@@ -63,6 +63,30 @@ class InferenceRequest:
         self.database.session.commit()
 
 
+    def send_slack_message(self, user_id: str, message: str, uploaded_list: list = []):
+        row = self.database.session.query(User).filter(
+                User.id == user_id
+            ).first() 
+
+        self.slack_sdk.send_message_multiple_files(
+            message=message,
+            file_path_list=uploaded_list,
+            channel=row.slack_id
+        )
+    
+
+    def update_job_by_id(self, job_id: int, **kwargs):
+        self.database.session.query(
+            Job
+            ).filter(
+                Job.id == job_id
+            ).update(
+                kwargs
+            )
+        self.database.session.commit()
+        self.database.session.flush()
+
+
     def loop_stt(
         self, 
         request_body: dict
@@ -83,29 +107,19 @@ class InferenceRequest:
                 self.running = False
                 break
 
-            # try:
-            self.stt(latest_job)
-            # except Exception as e:
-            #     print(e)
-            #     if e == KeyboardInterrupt: break
+            try:
+                self.stt(latest_job)
+            except Exception as e:
+                print(e)
+                self.send_slack_message(latest_job.user_id, f"========== 에러 발생 ==========\n{e}")
+                self.update_job_by_id(latest_job.id, status=StatusEnum.FAILED, error_message=e)
                 
-
+                
     def stt(
         self, 
         latest_job: Job
         ):
-        def update_job_by_id(latest_job, **kwargs):
-            self.database.session.query(
-                Job
-                ).filter(
-                    Job.id == latest_job.id
-                ).update(
-                    kwargs
-                )
-            self.database.session.commit()
-            self.database.session.flush()
-
-        def debug_print(latest_job: Job):
+        def _debug_print(latest_job: Job):
             print("[*] SLACK ID:", latest_job.user_id)
             print("[*] BUCKET:", latest_job.bucket)
             print("[*] HASH ID:", latest_job.hash_id)
@@ -120,7 +134,7 @@ class InferenceRequest:
             print("[*] UPDATED_AT:", latest_job.language)
             print("[*] FINISHED_AT:", latest_job.language)
 
-        def make_directories():
+        def _make_directories():
             if not os.path.isdir(self.download_dir):
                 print("[*] MAKING DOWNLOADS DIRECTORY.", self.download_dir)
                 os.makedirs(self.download_dir)
@@ -129,7 +143,7 @@ class InferenceRequest:
                 print("[*] MAKING DOWNLOADS DIRECTORY.")
                 os.makedirs(save_dir)
 
-        def minio_download(latest_job: Job):
+        def _minio_download(latest_job: Job):
             print(f"[*] PREFIX: {latest_job.bucket}/{latest_job.hash_id}")
             object_list = self.storage.list_object(
                 prefix = f"{latest_job.hash_id}/source/"
@@ -154,7 +168,7 @@ class InferenceRequest:
                     file_path=f"{self.download_dir}/{latest_job.hash_id}/source/{ext_path}/{basename}" ## TODO: Path unification, variantization
                 )
 
-        def speech_jobs(latest_job: Job, save_dir: str) -> dict:
+        def _speech_jobs(latest_job: Job, save_dir: str) -> dict:
             speech_tool = Speech(
                 save_dir=save_dir,
                 language=self.language_dict[latest_job.language]
@@ -171,7 +185,7 @@ class InferenceRequest:
         
             return speech_tool.run()
 
-        def minio_upload(save_dir: str) -> list:
+        def _minio_upload(save_dir: str) -> list:
             uploaded_list = []
             for filename in os.listdir(save_dir):
                 result_path = os.path.join(save_dir, filename)
@@ -182,44 +196,32 @@ class InferenceRequest:
                 )
                 uploaded_list.append(result_path)
             return uploaded_list
-
-        def send_slack_message(latest_job: Job, response, uploaded_list: list):
-            row = self.database.session.query(User).filter(
-                    User.id == latest_job.user_id
-                ).first() 
-    
-            self.slack_sdk.send_message_multiple_files(
-                message=response.choices[0].message.content,
-                file_path_list=uploaded_list,
-                channel=row.slack_id
-            )
-            # TODO: DB 내용 업데이트
         
-        update_job_by_id(latest_job, status=StatusEnum.INITIALIZING)
+        self.update_job_by_id(latest_job.id, status=StatusEnum.INITIALIZING)
         self.storage.bucket_name = latest_job.bucket
         save_dir = f"{self.download_dir}/{latest_job.hash_id}/result/"
-        debug_print(latest_job)
+        _debug_print(latest_job)
 
-        make_directories()
-        minio_download(latest_job)
+        _make_directories()
+        _minio_download(latest_job)
 
-        update_job_by_id(latest_job, status=StatusEnum.IN_PROGRESS_WHISPER)
-        whisper_result = speech_jobs(latest_job, save_dir)
+        self.update_job_by_id(latest_job.id, status=StatusEnum.IN_PROGRESS_WHISPER)
+        whisper_result = _speech_jobs(latest_job, save_dir)
         messages = copy.deepcopy(self.default_message)
         messages[1] = {"role": "user", "content": latest_job.prompt}
         messages.append({"role": "user", "content": whisper_result[0]["text"]})
 
-        update_job_by_id(latest_job, status=StatusEnum.IN_PROGRESS_CHATGPT)
+        self.update_job_by_id(latest_job.id, status=StatusEnum.IN_PROGRESS_CHATGPT)
         response = self.gpt_client.chat.completions.create(
             model=latest_job.gpt_model,
             messages=messages
         )
-        print("[*] CHATGPT RESPONSE:", response)
+        print("[*] CHATGPT RESPONSE:", response, type(response))
         print("[*] response.choices[0].message.content", response.choices[0].message.content)
 
-        uploaded_list = minio_upload(save_dir)
-        send_slack_message(latest_job, response, uploaded_list)
-        update_job_by_id(latest_job, status=StatusEnum.COMPLETED)
+        uploaded_list = _minio_upload(save_dir.asda)
+        self.send_slack_message(latest_job.user_id, response.choices[0].message.content, uploaded_list)
+        self.update_job_by_id(latest_job.id, status=StatusEnum.COMPLETED, finished_at=datetime.datetime.now())
 
 
     def storage_lambda(
@@ -227,6 +229,7 @@ class InferenceRequest:
         request_body: dict
         ):
         print(request_body)
+
 
 
     def runserver(self):
