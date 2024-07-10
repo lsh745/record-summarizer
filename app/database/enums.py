@@ -10,8 +10,9 @@ class LanguageEnum(enum.Enum):
     AUTO = None
 
 class StatusEnum(enum.Enum):
-    PENDING = "pending"
-    IN_PROGRESS_WHISPER = "whisper"
-    IN_PROGRESS_CHATGPT = "chatgpt"
-    COMPLETED = "completed"
-    FAILED = "failed"
+    PENDING = "PENDING"
+    INITIALIZING = "INITIALIZING"
+    IN_PROGRESS_WHISPER = "WHISPER"
+    IN_PROGRESS_CHATGPT = "CHATGPT"
+    COMPLETED = "COMPLETED"
+    FAILED = "FAILED"
