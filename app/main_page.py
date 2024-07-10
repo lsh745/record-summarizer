@@ -104,15 +104,15 @@ if start_button:
         "gpt_model": str(options[options["option"] == "gpt_model"]["value"]).split()[1],
         "language": language_selectbox,
         # "upload_data_path": save_dir,
-        "video_ext_list": ["mp4"],
-        "audio_ext_list": ["m4a", "wav"],
+        # "video_ext_list": ["mp4"],
+        # "audio_ext_list": ["m4a", "wav"],
         # "video_ext_list": options[options["option"] == "video_ext_list"]["value"].split(),
         # "audio_ext_list": options[options["option"] == "audio_ext_list"]["value"].split(),
-        "messages": [ 
-            {"role": "system", "content": "너는 사용자가 제공하는 회의 내용을 보고 요약해야 돼. 회사에서 진행 한 회의 내용이고 회의록처럼 요약하고 정리해서 사용자한테 돌려줘. 바로 아래에 나올 내용은 사용자의 요구사항이고 비어있을 땐 무시하면 돼."},
-            {"role": "user", "content": prompt_data}, 
-            {"role": "system", "content": "이제 아래에 회의 내용이 제공될거야."}
-        ]
+        # "messages": [ 
+        #     {"role": "system", "content": "너는 사용자가 제공하는 회의 내용을 보고 요약해야 돼. 회사에서 진행 한 회의 내용이고 회의록처럼 요약하고 정리해서 사용자한테 돌려줘. 바로 아래에 나올 내용은 사용자의 요구사항이고 비어있을 땐 무시하면 돼."},
+        #     {"role": "user", "content": prompt_data}, 
+        #     {"role": "system", "content": "이제 아래에 회의 내용이 제공될거야."}
+        # ]
     }
 
     job = Job(

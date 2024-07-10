@@ -28,23 +28,26 @@ class SlackSDK:
     def send_message_file(
         self, 
         message: str,
+        channel: str,
         file_path: str, 
-        file_title: str="My Test Text File", 
-        filename: str="test.txt", 
-        channel: str="U04JTRAGYBY"
+        file_title: str, 
+        filename: str 
         ):
         with open(file_path, encoding="latin_1") as f:
-            new_file = self.client.files_upload_v2(
-                title=file_title,
-                filename=filename,
-                filetype="zip",
-                content=f.read()
-            )
+            divider = ""
+            if file_path and file_title and filename:
+                new_file = self.client.files_upload_v2(
+                    title=file_title,
+                    filename=filename,
+                    filetype="zip",
+                    content=f.read()
+                )
+                divider == "\n\n"
 
             file_url = new_file.get("file").get("permalink")
             self.send_message(
                 channel=channel, 
-                message=f"{message}\n\nFile: {file_url}"
+                message=f"{message}{divider}{file_url}"
                 )
 
 
