@@ -14,6 +14,7 @@ class User(Base):
     
     slack_id = Column(String, nullable=False)
     display_name = Column(String, nullable=False)
+    storage_id = Column(String, nullable=True)
     storage_access_token = Column(String, nullable=True)
     storage_secret_token = Column(String, nullable=True)
 

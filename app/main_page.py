@@ -91,7 +91,7 @@ if start_button:
 
     for data in upload_data_list:
         print(data)
-        st.session_state.storage.upload_file_raw(
+        st.session_state.storage.upload_object_raw(
             object_name = f"{hash_value}/source/{data.name}",
             data = io.BytesIO(data.getvalue()),
             length = data.size

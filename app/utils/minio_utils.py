@@ -1,5 +1,6 @@
 from os import getenv
-from minio import Minio, notificationconfig
+from minio import Minio, notificationconfig, commonconfig
+
 
 class MinIO:
     def __init__(self):
@@ -26,7 +27,7 @@ class MinIO:
         return objects
 
 
-    def upload_file(
+    def upload_object(
         self,
         object_name: str,
         file_path: str,
@@ -41,7 +42,7 @@ class MinIO:
             ) 
 
 
-    def upload_file_raw(
+    def upload_object_raw(
         self,
         object_name: str,
         data: bytes,
@@ -58,7 +59,7 @@ class MinIO:
             )    
             
             
-    def download_file(
+    def download_object(
         self,
         object_name: str,
         file_path: str,
@@ -69,6 +70,26 @@ class MinIO:
             object_name = object_name, 
             file_path = file_path
             )
+
+    def move_object(
+            self, 
+            source_bucket: str,
+            source_object: str, 
+            target_bucket: str,
+            target_object: str
+        ):
+        print("COPYING OBJECT")
+        self.minio_client.copy_object(
+            target_bucket, 
+            target_object, 
+            commonconfig.CopySource(
+                source_bucket, 
+                source_object
+            ),
+        )
+        self.minio_client.remove_object(
+            source_bucket, 
+            source_object)
 
 
     def create_bucket(self, bucket_name: str):
