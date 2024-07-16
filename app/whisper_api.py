@@ -5,11 +5,14 @@ from utils.database_utils import Database
 from utils.minio_utils import MinIO
 from database.models import User, Job
 from database.enums import GPTModelEnum, LanguageEnum, StatusEnum
+
 import io
 import os
 import datetime
 import copy
 import uvicorn
+import hashlib
+
 from fastapi import FastAPI, Request, Header, Response, status, BackgroundTasks, APIRouter
 from fastapi.responses import JSONResponse
 from starlette.middleware.cors import CORSMiddleware
@@ -36,13 +39,7 @@ class InferenceRequest:
         self.download_dir = "/downloads"
         self.running = False
 
-        self.language_dict = {
-            "한국어": "ko",
-            "영어": "en",
-            "자동": None
-        }
-
-        self.video_ext_list = ["mp4"]
+        self.video_ext_list = ["mp4", "MXF"]
         self.audio_ext_list = ["m4a", "wav"]
         self.default_message = [ 
             {"role": "system", "content": "너는 사용자가 제공하는 회의 내용을 보고 요약해야 돼. 회의록처럼 요약하고 정리해서 사용자한테 돌려줘. 바로 아래에 나올 내용은 사용자의 요구사항이고 비어있을 땐 무시하면 돼."},
@@ -89,7 +86,7 @@ class InferenceRequest:
 
     def loop_stt(
         self, 
-        request_body: dict
+        request_body: dict = {}
         ):
         if self.running: return 
         else: self.running = True
@@ -112,7 +109,7 @@ class InferenceRequest:
             except Exception as e:
                 print(e)
                 self.send_slack_message(latest_job.user_id, f"========== 에러 발생 ==========\n{e}")
-                self.update_job_by_id(latest_job.id, status=StatusEnum.FAILED, error_message=e)
+                self.update_job_by_id(latest_job.id, status=StatusEnum.FAILED, error_message=str(e))
                 
                 
     def stt(
@@ -130,9 +127,9 @@ class InferenceRequest:
             # print("[*] VIDEO EXT:", latest_job["video_ext_list"])
             # print("[*] AUDIO EXT:", latest_job["audio_ext_list"])
             print("[*] MESSAGE:", latest_job.message)
-            print("[*] CREATED_AT:", latest_job.language)
-            print("[*] UPDATED_AT:", latest_job.language)
-            print("[*] FINISHED_AT:", latest_job.language)
+            print("[*] CREATED_AT:", latest_job.created_at)
+            # print("[*] UPDATED_AT:", latest_job.updated_at)
+            # print("[*] FINISHED_AT:", latest_job.finished_at)
 
         def _make_directories():
             if not os.path.isdir(self.download_dir):
@@ -163,7 +160,7 @@ class InferenceRequest:
                     ext_path = "audio"
                 
                 print("[+] DOWNLOADING", extension, ext_path, object.object_name, f"{self.download_dir}/{latest_job.hash_id}/source/{ext_path}/{basename}")
-                self.storage.download_file(
+                self.storage.download_object(
                     object_name=object.object_name,
                     file_path=f"{self.download_dir}/{latest_job.hash_id}/source/{ext_path}/{basename}" ## TODO: Path unification, variantization
                 )
@@ -171,7 +168,7 @@ class InferenceRequest:
         def _speech_jobs(latest_job: Job, save_dir: str) -> dict:
             speech_tool = Speech(
                 save_dir=save_dir,
-                language=self.language_dict[latest_job.language]
+                language=latest_job.language
                 )
 
             speech_tool.video_list = multi_ext_glob(f"{self.download_dir}/{latest_job.hash_id}/source/video/", self.video_ext_list, recursive=True) ## TODO: Path unification, variantization
@@ -190,7 +187,7 @@ class InferenceRequest:
             for filename in os.listdir(save_dir):
                 result_path = os.path.join(save_dir, filename)
                 print("[*] UPLOADING FILE.", filename, result_path)
-                self.storage.upload_file(
+                self.storage.upload_object(
                     object_name = f"{latest_job.hash_id}/result/{filename}",
                     file_path=result_path
                 )
@@ -207,6 +204,7 @@ class InferenceRequest:
 
         self.update_job_by_id(latest_job.id, status=StatusEnum.IN_PROGRESS_WHISPER)
         whisper_result = _speech_jobs(latest_job, save_dir)
+        print(whisper_result)
         messages = copy.deepcopy(self.default_message)
         messages[1] = {"role": "user", "content": latest_job.prompt}
         messages.append({"role": "user", "content": whisper_result[0]["text"]})
@@ -219,7 +217,7 @@ class InferenceRequest:
         print("[*] CHATGPT RESPONSE:", response, type(response))
         print("[*] response.choices[0].message.content", response.choices[0].message.content)
 
-        uploaded_list = _minio_upload(save_dir.asda)
+        uploaded_list = _minio_upload(save_dir)
         self.send_slack_message(latest_job.user_id, response.choices[0].message.content, uploaded_list)
         self.update_job_by_id(latest_job.id, status=StatusEnum.COMPLETED, finished_at=datetime.datetime.now())
 
@@ -230,6 +228,34 @@ class InferenceRequest:
         ):
         print(request_body)
 
+        user_row = self.database.session.query(User).filter(
+                User.storage_id == request_body["Records"][0]["userIdentity"]["principalId"]
+            ).first()
+
+        h = hashlib.new('sha256')
+        h.update(bytes(f"{user_row.slack_id}_{datetime.datetime.now()}", 'utf-8'))
+        hash_value = h.hexdigest()
+        basename = os.path.basename(request_body["Records"][0]["s3"]["object"]["key"])
+
+        self.storage.move_object(
+            request_body["Records"][0]["s3"]["bucket"]["name"],
+            request_body["Records"][0]["s3"]["object"]["key"],
+            request_body["Records"][0]["s3"]["bucket"]["name"],
+            f"{hash_value}/source/{basename}"
+        )
+        
+        
+        job = Job(
+            user_id=user_row.id,
+            gpt_model="gpt-3.5-turbo", # TODO: 유저가 바꿀 수 있게 변경
+            language="ko", # TODO: 유저가 바꿀 수 있게 변경
+            prompt="", # TODO: 유저가 바꿀 수 있게 변경
+            bucket="large-size", # TODO: 유저가 바꿀 수 있게 변경
+            hash_id=hash_value
+            )
+        self.database.session.add(job)
+        self.database.session.commit()
+        self.loop_stt()
 
 
     def runserver(self):
